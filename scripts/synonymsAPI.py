@@ -3,14 +3,14 @@ import sys
 import json
 import os
 import logging
-
+ 
 logging.basicConfig(filename='synonymsAPI.log', format='%(asctime)s - %(message)s', level=logging.INFO)
-
+ 
 inputWord = sys.argv[1]
 inputMax = sys.argv[2]
 synonyms = {}
 path = "synonyms.json"
-
+ 
 def synonyms_get(word, max):
     headers = {
     'X-RapidAPI-Key': 'bf02cdb9a7msh5aaaa5372b0f9b2p134436jsn29de29f01fbe'
@@ -25,15 +25,20 @@ def synonyms_get(word, max):
         logging.error("Exception occurred", exc_info=True)
         print(e)
         sys.exit(1)
-
-    if(response.status_code == requests.codes.ok):
+ 
+    if response.json():
         logging.info('Got data from API for word: '+ word)
         data = response.json()
-        for element in data: 
+        for element in data:
             del element['tags']
         #print(data)
         return data
-
+ 
+    else:
+        print("Word not found in API!")
+        logging.error(f"Word {word} not found")
+        return response.json()
+ 
 def readJSON(path):
     global synonyms
     if os.path.exists('synonyms.json'):
@@ -44,7 +49,7 @@ def readJSON(path):
                 synonyms = data
                 return data
             except Exception as e:
-                logging.error("Exception occurred", exc_info=True)
+                logging.error("Exception occurred", exc_info=False)
                 print("error %s on readJSON()" % e)
     else:
         with open(path, 'w') as json_file:
@@ -55,9 +60,9 @@ def readJSON(path):
                 synonyms = synonym
                 return synonym
             except Exception as e:
-                logging.error("Exception occurred", exc_info=True)
+                logging.error("Exception occurred", exc_info=False)
                 print("error %s on readJSON()" % e)
-
+ 
 def saveToJSON(data, path):
     global synonyms
     with open(path, 'w') as json_file:
@@ -66,9 +71,9 @@ def saveToJSON(data, path):
             synonyms.update(synonym)
             json.dump(synonyms, json_file)
         except Exception as e:
-            logging.error("Exception occurred", exc_info=True)
+            logging.error("Exception occurred", exc_info=False)
             print("error %s on saveToJSON" % e)
-
+ 
 def main(filePath, word):
     global synonyms, inputWord, inputMax
     readJSON(filePath)
@@ -79,5 +84,6 @@ def main(filePath, word):
         logging.info("Word: " + word + " not found, getting data from API")
         print("Word: " + word + " not found, getting data from API")
         saveToJSON(synonyms_get(inputWord, inputMax), filePath)
-
+        os.system("su -c \"hdfs dfs -put synonyms.json /user/hadoop/HDFS/raw_data/synonyms\" hdfs")
+ 
 main(path, inputWord)
